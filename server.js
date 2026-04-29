@@ -211,45 +211,62 @@ app.get("/create-charge", async (req, res) => {
       .eq("shop", shop)
       .single();
 
-    console.log("USER:", user);
-
     if (!user || !user.access_token) {
-      return res.send("❌ No access token found. Reinstall app.");
+      return res.send("❌ No access token found");
     }
 
-    const response = await fetch(`https://${shop}/admin/api/2024-01/recurring_application_charges.json`, {
+    const response = await fetch(`https://${shop}/admin/api/2024-01/graphql.json`, {
       method: "POST",
       headers: {
         "X-Shopify-Access-Token": user.access_token,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        recurring_application_charge: {
-          name: "AI Chat Pro Plan",
-          price: 19.0,
-          return_url: `https://ai-chat-backend-c3y7.onrender.com/confirm-charge?shop=${shop}`,
-          test: true
-        }
+        query: `
+          mutation {
+            appSubscriptionCreate(
+              name: "AI Chat Pro Plan",
+              returnUrl: "https://ai-chat-backend-c3y7.onrender.com/confirm-charge?shop=${shop}",
+              test: true,
+              lineItems: [
+                {
+                  plan: {
+                    appRecurringPricingDetails: {
+                      price: { amount: 19.0, currencyCode: USD }
+                      interval: EVERY_30_DAYS
+                    }
+                  }
+                }
+              ]
+            ) {
+              confirmationUrl
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `
       })
     });
 
     const data = await response.json();
 
-    console.log("SHOPIFY RESPONSE:", data);
+    console.log("GRAPHQL RESPONSE:", data);
 
-    // 👇 THIS IS THE KEY PART
-    if (data.errors) {
-      return res.send("Shopify Error: " + JSON.stringify(data.errors));
+    const url = data?.data?.appSubscriptionCreate?.confirmationUrl;
+
+    if (!url) {
+      return res.send("Shopify Error: " + JSON.stringify(data));
     }
 
-    res.redirect(data.recurring_application_charge.confirmation_url);
+    res.redirect(url);
 
   } catch (error) {
-    console.error("ERROR:", error);
-    res.send("❌ Server error: " + error.message);
+    console.error(error);
+    res.send("Server error");
   }
 });
-
 
 // =============================
 // CONFIRM PAYMENT
