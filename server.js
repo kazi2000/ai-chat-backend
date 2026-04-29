@@ -24,6 +24,19 @@ const supabase = createClient(
 app.post("/chat", async (req, res) => {
   try {
     const { message, sessionId } = req.body;
+    // Get user plan
+const { data: user } = await supabase
+  .from("users")
+  .select("*")
+  .eq("shop", sessionId)
+  .single();
+
+// Check limits
+if (user.plan === "free" && user.message_count >= 50) {
+  return res.json({
+    reply: "⚠️ Free limit reached. Upgrade to continue using AI."
+  });
+}
 
     // Get previous memory
     const { data: memory } = await supabase
@@ -46,6 +59,11 @@ app.post("/chat", async (req, res) => {
 
     // Store memory
     await supabase.from("chat_memory").insert([
+      // Increase message count
+await supabase
+  .from("users")
+  .update({ message_count: user.message_count + 1 })
+  .eq("shop", sessionId);
       { session_id: sessionId, message: message },
       { session_id: sessionId, message: reply }
     ]);
