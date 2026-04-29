@@ -45,10 +45,10 @@ app.post("/chat", async (req, res) => {
 
     // Free plan limit
     if (user.plan === "free" && user.message_count >= 50) {
-      return res.json({
-        reply: "⚠️ Free limit reached. Upgrade to continue."
-      });
-    }
+  return res.json({
+    reply: `⚠️ Free limit reached. Upgrade here: https://ai-chat-backend-c3y7.onrender.com/create-charge?shop=${sessionId}`
+  });
+}
 
     // Get memory
     const { data: memory } = await supabase
