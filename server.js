@@ -239,7 +239,7 @@ app.get("/create-charge", async (req, res) => {
 
     // 👇 THIS IS THE KEY PART
     if (data.errors) {
-      return res.send("❌ Shopify Error: " + JSON.stringify(data.errors));
+      return res.send("Shopify Error: " + JSON.stringify(data.errors));
     }
 
     res.redirect(data.recurring_application_charge.confirmation_url);
