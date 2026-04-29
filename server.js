@@ -128,11 +128,13 @@ app.get("/auth/callback", async (req, res) => {
 
   const accessToken = tokenData.access_token;
 
-  await supabase.from("users").upsert({
+  const { data, error } = await supabase.from("users").upsert({
   shop: shop,
   plan: "free",
   message_count: 0
 });
+
+console.log("SUPABASE INSERT:", data, error);
 
   // Call your install script API
   await fetch("https://ai-chat-backend-c3y7.onrender.com/install-script", {
