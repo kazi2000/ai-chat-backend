@@ -133,6 +133,7 @@ app.get("/auth/callback", async (req, res) => {
     });
 
     const tokenData = await tokenRes.json();
+    console.log("TOKEN DATA:", tokenData);
     const accessToken = tokenData.access_token;
 
     // Save user
