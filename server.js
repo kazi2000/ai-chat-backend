@@ -1,9 +1,9 @@
-import fetch from "node-fetch";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
+import fetch from "node-fetch";
 
 dotenv.config();
 
