@@ -84,6 +84,16 @@ app.post("/install-script", async (req, res) => {
   }
 });
 
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+app.get("/widget.js", (req, res) => {
+  res.sendFile(path.join(__dirname, "widget.js"));
+});
+
 app.listen(3000, () => {
   console.log("Server running on port 3000");
 });
