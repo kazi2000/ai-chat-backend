@@ -120,6 +120,41 @@ app.get("/install", (req, res) => {
   console.log(req.query);
 
   const redirectUri = "https://ai-chat-backend-c3y7.onrender.com/auth/callback";
+  app.get("/create-charge", async (req, res) => {
+  const shop = req.query.shop;
+
+  const apiKey = process.env.SHOPIFY_API_KEY;
+  const accessToken = process.env.SHOPIFY_ACCESS_TOKEN;
+
+  const returnUrl = `https://ai-chat-backend-c3y7.onrender.com/confirm-charge`;
+
+  try {
+    const response = await fetch(`https://${shop}/admin/api/2024-01/recurring_application_charges.json`, {
+      method: "POST",
+      headers: {
+        "X-Shopify-Access-Token": accessToken,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        recurring_application_charge: {
+          name: "Chat Sell AI Pro Plan",
+          price: 19.0,
+          return_url: returnUrl,
+          test: true
+        }
+      })
+    });
+
+    const data = await response.json();
+
+    // Redirect user to approval page
+    res.redirect(data.recurring_application_charge.confirmation_url);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error creating charge");
+  }
+});
 
   const installUrl = `https://${shop}/admin/oauth/authorize?client_id=${apiKey}&scope=write_script_tags&redirect_uri=${redirectUri}`;
 
@@ -147,6 +182,12 @@ app.get("/auth/callback", async (req, res) => {
   const tokenData = await tokenRes.json();
 
   const accessToken = tokenData.access_token;
+  await supabase.from("users").upsert({
+  shop: shop,
+  plan: "free",
+  message_count: 0,
+  access_token: accessToken
+});
 
   const { data, error } = await supabase.from("users").upsert({
   shop: shop,
