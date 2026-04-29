@@ -1,3 +1,4 @@
+import fetch from "node-fetch";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -54,6 +55,32 @@ app.post("/chat", async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Something went wrong" });
+  }
+});
+app.post("/install-script", async (req, res) => {
+  const { shop, accessToken } = req.body;
+
+  try {
+    const response = await fetch(`https://${shop}/admin/api/2024-01/script_tags.json`, {
+      method: "POST",
+      headers: {
+        "X-Shopify-Access-Token": accessToken,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        script_tag: {
+          event: "onload",
+          src: "https://ai-chat-backend-c3y7.onrender.com/widget.js"
+        }
+      })
+    });
+
+    const data = await response.json();
+    res.json(data);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error installing script");
   }
 });
 
