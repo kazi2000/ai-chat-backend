@@ -109,7 +109,7 @@ app.get("/install", (req, res) => {
 
   const scopes = "write_script_tags,read_script_tags,write_products,read_products";
 
-  const installUrl = `https://${shop}/admin/oauth/authorize?client_id=${apiKey}&scope=${scopes}&redirect_uri=${redirectUri}`;
+  const installUrl = `https://${shop}/admin/oauth/authorize?client_id=${apiKey}&scope=read_products,write_script_tags&redirect_uri=${redirectUri}&grant_options[]=per-user`;
 
   res.redirect(installUrl);
 });
