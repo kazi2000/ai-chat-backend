@@ -208,12 +208,16 @@ app.get("/create-charge", async (req, res) => {
       .eq("shop", shop)
       .single();
 
-    const accessToken = user.access_token;
+    console.log("USER:", user);
+
+    if (!user || !user.access_token) {
+      return res.send("❌ No access token found. Reinstall app.");
+    }
 
     const response = await fetch(`https://${shop}/admin/api/2024-01/recurring_application_charges.json`, {
       method: "POST",
       headers: {
-        "X-Shopify-Access-Token": accessToken,
+        "X-Shopify-Access-Token": user.access_token,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -228,11 +232,18 @@ app.get("/create-charge", async (req, res) => {
 
     const data = await response.json();
 
+    console.log("SHOPIFY RESPONSE:", data);
+
+    // 👇 THIS IS THE KEY PART
+    if (data.errors) {
+      return res.send("❌ Shopify Error: " + JSON.stringify(data.errors));
+    }
+
     res.redirect(data.recurring_application_charge.confirmation_url);
 
   } catch (error) {
-    console.error(error);
-    res.status(500).send("Error creating charge");
+    console.error("ERROR:", error);
+    res.send("❌ Server error: " + error.message);
   }
 });
 
