@@ -4,6 +4,8 @@ import dotenv from "dotenv";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import fetch from "node-fetch";
+import path from "path";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
@@ -11,34 +13,44 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Fix __dirname for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// OpenAI
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Supabase
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY
 );
 
-// Chat API
+
+// =============================
+// CHAT API
+// =============================
 app.post("/chat", async (req, res) => {
   try {
     const { message, sessionId } = req.body;
-    // Get user plan
-const { data: user } = await supabase
-  .from("users")
-  .select("*")
-  .eq("shop", sessionId)
-  .single();
 
-// Check limits
-if (user.plan === "free" && user.message_count >= 50) {
-  return res.json({
-    reply: "⚠️ Free limit reached. Upgrade to continue using AI."
-  });
-}
+    // Get user
+    const { data: user } = await supabase
+      .from("users")
+      .select("*")
+      .eq("shop", sessionId)
+      .single();
 
-    // Get previous memory
+    // Free plan limit
+    if (user.plan === "free" && user.message_count >= 50) {
+      return res.json({
+        reply: "⚠️ Free limit reached. Upgrade to continue."
+      });
+    }
+
+    // Get memory
     const { data: memory } = await supabase
       .from("chat_memory")
       .select("*")
@@ -57,13 +69,14 @@ if (user.plan === "free" && user.message_count >= 50) {
 
     const reply = response.choices[0].message.content;
 
-    // Store memory
+    // ✅ Update message count
+    await supabase
+      .from("users")
+      .update({ message_count: user.message_count + 1 })
+      .eq("shop", sessionId);
+
+    // ✅ Store memory
     await supabase.from("chat_memory").insert([
-      // Increase message count
-await supabase
-  .from("users")
-  .update({ message_count: user.message_count + 1 })
-  .eq("shop", sessionId);
       { session_id: sessionId, message: message },
       { session_id: sessionId, message: reply }
     ]);
@@ -75,6 +88,85 @@ await supabase
     res.status(500).json({ error: "Something went wrong" });
   }
 });
+
+
+// =============================
+// SERVE WIDGET
+// =============================
+app.get("/widget.js", (req, res) => {
+  res.sendFile(path.join(__dirname, "widget.js"));
+});
+
+
+// =============================
+// INSTALL APP
+// =============================
+app.get("/install", (req, res) => {
+  const shop = req.query.shop;
+
+  const apiKey = process.env.SHOPIFY_API_KEY;
+  const redirectUri = "https://ai-chat-backend-c3y7.onrender.com/auth/callback";
+
+  const installUrl = `https://${shop}/admin/oauth/authorize?client_id=${apiKey}&scope=write_script_tags&redirect_uri=${redirectUri}`;
+
+  res.redirect(installUrl);
+});
+
+
+// =============================
+// AUTH CALLBACK
+// =============================
+app.get("/auth/callback", async (req, res) => {
+  const { shop, code } = req.query;
+
+  try {
+    const tokenRes = await fetch(`https://${shop}/admin/oauth/access_token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        client_id: process.env.SHOPIFY_API_KEY,
+        client_secret: process.env.SHOPIFY_API_SECRET,
+        code
+      })
+    });
+
+    const tokenData = await tokenRes.json();
+    const accessToken = tokenData.access_token;
+
+    // Save user
+    await supabase.from("users").upsert({
+      shop,
+      plan: "free",
+      message_count: 0,
+      access_token: accessToken
+    });
+
+    // Install widget script
+    await fetch("https://ai-chat-backend-c3y7.onrender.com/install-script", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        shop,
+        accessToken
+      })
+    });
+
+    res.send("✅ App installed successfully");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Auth error");
+  }
+});
+
+
+// =============================
+// INSTALL SCRIPT TO SHOPIFY
+// =============================
 app.post("/install-script", async (req, res) => {
   const { shop, accessToken } = req.body;
 
@@ -102,121 +194,14 @@ app.post("/install-script", async (req, res) => {
   }
 });
 
-import path from "path";
-import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-app.get("/widget.js", (req, res) => {
-  res.sendFile(path.join(__dirname, "widget.js"));
-});
-
-app.get("/install", (req, res) => {
-  const shop = req.query.shop;
-
-  const apiKey = process.env.SHOPIFY_API_KEY;
-  console.log("CALLBACK HIT");
-  console.log(req.query);
-
-  const redirectUri = "https://ai-chat-backend-c3y7.onrender.com/auth/callback";
-  app.get("/create-charge", async (req, res) => {
-  const shop = req.query.shop;
-
-  const apiKey = process.env.SHOPIFY_API_KEY;
-  const accessToken = process.env.SHOPIFY_ACCESS_TOKEN;
-
-  const returnUrl = `https://ai-chat-backend-c3y7.onrender.com/confirm-charge`;
-
-  try {
-    const response = await fetch(`https://${shop}/admin/api/2024-01/recurring_application_charges.json`, {
-      method: "POST",
-      headers: {
-        "X-Shopify-Access-Token": accessToken,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        recurring_application_charge: {
-          name: "Chat Sell AI Pro Plan",
-          price: 19.0,
-          return_url: returnUrl,
-          test: true
-        }
-      })
-    });
-
-    const data = await response.json();
-
-    // Redirect user to approval page
-    res.redirect(data.recurring_application_charge.confirmation_url);
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).send("Error creating charge");
-  }
-});
-
-  const installUrl = `https://${shop}/admin/oauth/authorize?client_id=${apiKey}&scope=write_script_tags&redirect_uri=${redirectUri}`;
-
-  res.redirect(installUrl);
-});
-
-app.get("/auth/callback", async (req, res) => {
-  const { shop, code } = req.query;
-
-  const apiKey = process.env.SHOPIFY_API_KEY;
-  const apiSecret = process.env.SHOPIFY_API_SECRET;
-
-  const tokenRes = await fetch(`https://${shop}/admin/oauth/access_token`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      client_id: apiKey,
-      client_secret: apiSecret,
-      code
-    })
-  });
-
-  const tokenData = await tokenRes.json();
-
-  const accessToken = tokenData.access_token;
-  await supabase.from("users").upsert({
-  shop: shop,
-  plan: "free",
-  message_count: 0,
-  access_token: accessToken
-});
-
-  const { data, error } = await supabase.from("users").upsert({
-  shop: shop,
-  plan: "free",
-  message_count: 0
-});
-
-console.log("SUPABASE INSERT:", data, error);
-
-  // Call your install script API
-  await fetch("https://ai-chat-backend-c3y7.onrender.com/install-script", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      shop,
-      accessToken
-    })
-  });
-
-  res.send("App installed successfully 🎉");
-});
-
+// =============================
+// CREATE CHARGE (PAID PLAN)
+// =============================
 app.get("/create-charge", async (req, res) => {
   const shop = req.query.shop;
 
   try {
-    // Get user from DB
     const { data: user } = await supabase
       .from("users")
       .select("*")
@@ -235,32 +220,14 @@ app.get("/create-charge", async (req, res) => {
         recurring_application_charge: {
           name: "AI Chat Pro Plan",
           price: 19.0,
-          return_url: `https://ai-chat-backend-c3y7.onrender.com/confirm-charge`,
+          return_url: `https://ai-chat-backend-c3y7.onrender.com/confirm-charge?shop=${shop}`,
           test: true
         }
       })
     });
-    app.get("/confirm-charge", async (req, res) => {
-  const { shop } = req.query;
-
-  try {
-    // Update user to PAID
-    await supabase
-      .from("users")
-      .update({ plan: "paid" })
-      .eq("shop", shop);
-
-    res.send("🎉 Payment successful! You are now on PRO plan.");
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).send("Error confirming payment");
-  }
-});
 
     const data = await response.json();
 
-    // Redirect to Shopify payment page
     res.redirect(data.recurring_application_charge.confirmation_url);
 
   } catch (error) {
@@ -269,6 +236,29 @@ app.get("/create-charge", async (req, res) => {
   }
 });
 
+
+// =============================
+// CONFIRM PAYMENT
+// =============================
+app.get("/confirm-charge", async (req, res) => {
+  const { shop } = req.query;
+
+  try {
+    await supabase
+      .from("users")
+      .update({ plan: "paid" })
+      .eq("shop", shop);
+
+    res.send("🎉 Payment successful! PRO plan activated.");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error confirming payment");
+  }
+});
+
+
+// =============================
 app.listen(3000, () => {
   console.log("Server running on port 3000");
 });
