@@ -137,6 +137,18 @@ app.get("/auth/callback", async (req, res) => {
     const tokenData = await tokenRes.json();
     console.log("TOKEN DATA:", tokenData);
     const accessToken = tokenData.access_token;
+    // 🔥 Fetch products from Shopify
+const productRes = await fetch(`https://${shop}/admin/api/2024-01/products.json`, {
+  method: "GET",
+  headers: {
+    "X-Shopify-Access-Token": accessToken,
+    "Content-Type": "application/json"
+  }
+});
+
+const productData = await productRes.json();
+
+console.log("PRODUCTS:", productData.products?.length);
 
     // Save user
     await supabase.from("users").upsert({
