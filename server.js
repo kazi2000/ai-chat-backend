@@ -212,6 +212,46 @@ console.log("SUPABASE INSERT:", data, error);
   res.send("App installed successfully 🎉");
 });
 
+app.get("/create-charge", async (req, res) => {
+  const shop = req.query.shop;
+
+  try {
+    // Get user from DB
+    const { data: user } = await supabase
+      .from("users")
+      .select("*")
+      .eq("shop", shop)
+      .single();
+
+    const accessToken = user.access_token;
+
+    const response = await fetch(`https://${shop}/admin/api/2024-01/recurring_application_charges.json`, {
+      method: "POST",
+      headers: {
+        "X-Shopify-Access-Token": accessToken,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        recurring_application_charge: {
+          name: "AI Chat Pro Plan",
+          price: 19.0,
+          return_url: `https://ai-chat-backend-c3y7.onrender.com/confirm-charge`,
+          test: true
+        }
+      })
+    });
+
+    const data = await response.json();
+
+    // Redirect to Shopify payment page
+    res.redirect(data.recurring_application_charge.confirmation_url);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error creating charge");
+  }
+});
+
 app.listen(3000, () => {
   console.log("Server running on port 3000");
 });
