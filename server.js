@@ -107,7 +107,9 @@ app.get("/install", (req, res) => {
   const apiKey = process.env.SHOPIFY_API_KEY;
   const redirectUri = "https://ai-chat-backend-c3y7.onrender.com/auth/callback";
 
-  const installUrl = `https://${shop}/admin/oauth/authorize?client_id=${apiKey}&scope=write_script_tags,read_script_tags&redirect_uri=${redirectUri}`;
+  const scopes = "write_script_tags,read_script_tags,write_products,read_products";
+
+  const installUrl = `https://${shop}/admin/oauth/authorize?client_id=${apiKey}&scope=${scopes}&redirect_uri=${redirectUri}`;
 
   res.redirect(installUrl);
 });
