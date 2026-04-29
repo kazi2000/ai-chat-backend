@@ -240,6 +240,23 @@ app.get("/create-charge", async (req, res) => {
         }
       })
     });
+    app.get("/confirm-charge", async (req, res) => {
+  const { shop } = req.query;
+
+  try {
+    // Update user to PAID
+    await supabase
+      .from("users")
+      .update({ plan: "paid" })
+      .eq("shop", shop);
+
+    res.send("🎉 Payment successful! You are now on PRO plan.");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error confirming payment");
+  }
+});
 
     const data = await response.json();
 
