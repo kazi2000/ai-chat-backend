@@ -98,6 +98,8 @@ app.get("/install", (req, res) => {
   const shop = req.query.shop;
 
   const apiKey = process.env.SHOPIFY_API_KEY;
+  console.log("CALLBACK HIT");
+  console.log(req.query);
 
   const redirectUri = "https://ai-chat-backend-c3y7.onrender.com/auth/callback";
 
