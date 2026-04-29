@@ -94,6 +94,55 @@ app.get("/widget.js", (req, res) => {
   res.sendFile(path.join(__dirname, "widget.js"));
 });
 
+app.get("/install", (req, res) => {
+  const shop = req.query.shop;
+
+  const apiKey = process.env.SHOPIFY_API_KEY;
+
+  const redirectUri = "https://ai-chat-backend-c3y7.onrender.com/auth/callback";
+
+  const installUrl = `https://${shop}/admin/oauth/authorize?client_id=${apiKey}&scope=write_script_tags&redirect_uri=${redirectUri}`;
+
+  res.redirect(installUrl);
+});
+
+app.get("/auth/callback", async (req, res) => {
+  const { shop, code } = req.query;
+
+  const apiKey = process.env.SHOPIFY_API_KEY;
+  const apiSecret = process.env.SHOPIFY_API_SECRET;
+
+  const tokenRes = await fetch(`https://${shop}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      client_id: apiKey,
+      client_secret: apiSecret,
+      code
+    })
+  });
+
+  const tokenData = await tokenRes.json();
+
+  const accessToken = tokenData.access_token;
+
+  // Call your install script API
+  await fetch("https://ai-chat-backend-c3y7.onrender.com/install-script", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      shop,
+      accessToken
+    })
+  });
+
+  res.send("App installed successfully 🎉");
+});
+
 app.listen(3000, () => {
   console.log("Server running on port 3000");
 });
