@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Sales Agent - Admin Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .section h2 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-icon {
+            font-size: 20px;
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #6ee7b7;
+        }
+
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+
+        .status.info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+        }
+
+        .status.loading {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fcd34d;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            min-width: 150px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d1d5db;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .info-text {
+            font-size: 13px;
+            color: #666;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+
+        .script-list {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .script-item {
+            padding: 8px;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 13px;
+            color: #666;
+            word-break: break-all;
+        }
+
+        .script-item:last-child {
+            border-bottom: none;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #f3f4f6;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .success-icon {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background: #10b981;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 22px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            button {
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI Sales Agent</h1>
+            <p>Admin Dashboard</p>
+        </div>
+
+        <!-- Status Section -->
+        <div class="section">
+            <h2><span class="section-icon">📊</span>Status</h2>
+            <div id="status" class="status info">
+                Loading status...
+            </div>
+        </div>
+
+        <!-- Script Management Section -->
+        <div class="section">
+            <h2><span class="section-icon">🔧</span>Script Management</h2>
+            <p class="info-text">Manage your chat widget script tags on Shopify.</p>
+            
+            <div id="scripts-container" style="margin: 15px 0;">
+                <div class="status loading">
+                    <span class="spinner"></span> Loading scripts...
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-primary" id="btn-cleanup" onclick="cleanupScripts()">
+                    🧹 Clean Up Old Scripts
+                </button>
+                <button class="btn-secondary" id="btn-refresh" onclick="refreshScripts()">
+                    🔄 Refresh
+                </button>
+            </div>
+            <p class="info-text">
+                If you see multiple scripts below, click "Clean Up Old Scripts" to remove duplicates and keep only the latest one.
+            </p>
+        </div>
+
+        <!-- Reinstall Section -->
+        <div class="section">
+            <h2><span class="section-icon">⚡</span>Reinstall Widget</h2>
+            <p class="info-text">If the chat widget is not working, reinstall it fresh.</p>
+            
+            <div class="button-group">
+                <button class="btn-primary" id="btn-reinstall" onclick="reinstallWidget()">
+                    ⚙️ Reinstall Widget
+                </button>
+            </div>
+            <p class="info-text">
+                This will remove all old scripts and install a fresh, clean version.
+            </p>
+        </div>
+
+        <!-- Help Section -->
+        <div class="section">
+            <h2><span class="section-icon">❓</span>Need Help?</h2>
+            <p class="info-text">
+                <strong>Chat widget not showing?</strong><br>
+                1. Click "Clean Up Old Scripts"<br>
+                2. Wait 5 minutes<br>
+                3. Refresh your store page<br>
+                <br>
+                <strong>Still not working?</strong><br>
+                Click "Reinstall Widget" to start fresh.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Get shop from URL or localStorage
+        function getShop() {
+            const params = new URLSearchParams(window.location.search);
+            const shop = params.get('shop') || localStorage.getItem('shop');
+            return shop;
+        }
+
+        // Get access token from localStorage
+        function getAccessToken() {
+            return localStorage.getItem('accessToken');
+        }
+
+        // Update status display
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        // Load scripts on page load
+        async function loadScripts() {
+            const shop = getShop();
+            const accessToken = getAccessToken();
+
+            if (!shop || !accessToken) {
+                updateStatus('❌ Not authenticated. Please install the app first.', 'error');
+                return;
+            }
+
+            try {
+                updateStatus('Loading scripts...', 'info');
+                
+                const response = await fetch(`/api/scripts?shop=${shop}`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.scripts && data.scripts.length > 0) {
+                    displayScripts(data.scripts);
+                    updateStatus(`✅ Found ${data.scripts.length} script(s)`, 'success');
+                } else {
+                    document.getElementById('scripts-container').innerHTML = 
+                        '<div class="status info">No scripts installed yet.</div>';
+                    updateStatus('⚠️ No scripts found', 'info');
+                }
+            } catch (error) {
+                console.error('Error loading scripts:', error);
+                updateStatus('❌ Error loading scripts', 'error');
+            }
+        }
+
+        // Display scripts
+        function displayScripts(scripts) {
+            const container = document.getElementById('scripts-container');
+            
+            if (scripts.length === 0) {
+                container.innerHTML = '<div class="status info">No scripts found.</div>';
+                return;
+            }
+
+            let html = '<div class="script-list">';
+            scripts.forEach((script, index) => {
+                html += `<div class="script-item"><strong>Script ${index + 1}:</strong> ${script.src}</div>`;
+            });
+            html += '</div>';
+            
+            if (scripts.length > 1) {
+                html += '<div class="status error">⚠️ Multiple scripts detected! Click "Clean Up Old Scripts" to remove duplicates.</div>';
+            } else {
+                html += '<div class="status success">✅ One script installed (good!)</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        // Cleanup scripts
+        async function cleanupScripts() {
+            const shop = getShop();
+            const accessToken = getAccessToken();
+            const btn = document.getElementById('btn-cleanup');
+
+            if (!shop || !accessToken) {
+                updateStatus('❌ Not authenticated', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            updateStatus('🧹 Cleaning up scripts...', 'loading');
+
+            try {
+                const response = await fetch('/api/cleanup-scripts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({ shop })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    updateStatus('✅ Scripts cleaned up! Refreshing...', 'success');
+                    setTimeout(() => {
+                        loadScripts();
+                        btn.disabled = false;
+                    }, 2000);
+                } else {
+                    updateStatus('❌ ' + (data.error || 'Failed to cleanup scripts'), 'error');
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                updateStatus('❌ Error cleaning up scripts', 'error');
+                btn.disabled = false;
+            }
+        }
+
+        // Reinstall widget
+        async function reinstallWidget() {
+            const shop = getShop();
+            const accessToken = getAccessToken();
+            const btn = document.getElementById('btn-reinstall');
+
+            if (!shop || !accessToken) {
+                updateStatus('❌ Not authenticated', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            updateStatus('⚙️ Reinstalling widget...', 'loading');
+
+            try {
+                // First cleanup
+                await fetch('/api/cleanup-scripts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({ shop })
+                });
+
+                // Then install fresh
+                const response = await fetch('/install-script', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ shop, accessToken })
+                });
+
+                if (response.ok) {
+                    updateStatus('✅ Widget reinstalled! Refreshing...', 'success');
+                    setTimeout(() => {
+                        loadScripts();
+                        btn.disabled = false;
+                    }, 2000);
+                } else {
+                    updateStatus('❌ Failed to reinstall widget', 'error');
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                updateStatus('❌ Error reinstalling widget', 'error');
+                btn.disabled = false;
+            }
+        }
+
+        // Refresh scripts
+        function refreshScripts() {
+            loadScripts();
+        }
+
+        // Load on page load
+        window.addEventListener('load', loadScripts);
+    </script>
+</body>
+</html>

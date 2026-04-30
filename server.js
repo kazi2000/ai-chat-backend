@@ -4,6 +4,8 @@ import dotenv from "dotenv";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import fetch from "node-fetch";
+import globalFetch from "node-fetch";
+if (!global.fetch) global.fetch = fetch;
 import path from "path";
 import { fileURLToPath } from "url";
 import crypto from "crypto";
@@ -368,6 +370,10 @@ app.get("/widget.js", (req, res) => {
   res.sendFile(path.join(__dirname, "widget.js"));
 });
 
+app.get("/admin.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "admin.html"));
+});
+
 // =============================
 // INSTALL APP
 // =============================
@@ -642,6 +648,107 @@ app.get("/confirm-charge", async (req, res) => {
 });
 
 // =============================
+// ADMIN DASHBOARD
+// =============================
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, "admin.html"));
+});
+
+// =============================
+// API: GET SCRIPTS
+// =============================
+app.get("/api/scripts", async (req, res) => {
+  const { shop } = req.query;
+
+  if (!shop) {
+    return res.status(400).json({ error: "Missing shop parameter" });
+  }
+
+  try {
+    const { data: user } = await supabase
+      .from("users")
+      .select("access_token")
+      .eq("shop", shop)
+      .single();
+
+    if (!user || !user.access_token) {
+      return res.status(404).json({ error: "Store not found" });
+    }
+
+    const response = await fetch(`https://${shop}/admin/api/2024-01/script_tags.json`, {
+      headers: {
+        "X-Shopify-Access-Token": user.access_token
+      }
+    });
+
+    const data = await response.json();
+    res.json({ scripts: data.script_tags || [] });
+
+  } catch (error) {
+    console.error("Error fetching scripts:", error);
+    res.status(500).json({ error: "Failed to fetch scripts" });
+  }
+});
+
+// =============================
+// API: CLEANUP SCRIPTS
+// =============================
+app.post("/api/cleanup-scripts", async (req, res) => {
+  const { shop } = req.body;
+
+  if (!shop) {
+    return res.status(400).json({ error: "Missing shop parameter" });
+  }
+
+  try {
+    const { data: user } = await supabase
+      .from("users")
+      .select("access_token")
+      .eq("shop", shop)
+      .single();
+
+    if (!user || !user.access_token) {
+      return res.status(404).json({ error: "Store not found" });
+    }
+
+    // Get all scripts
+    const getResponse = await fetch(`https://${shop}/admin/api/2024-01/script_tags.json`, {
+      headers: {
+        "X-Shopify-Access-Token": user.access_token
+      }
+    });
+
+    const getData = await getResponse.json();
+    const scripts = getData.script_tags || [];
+
+    // Delete all widget scripts (keep only the latest)
+    const widgetScripts = scripts.filter(s => s.src.includes('widget.js'));
+    
+    if (widgetScripts.length > 1) {
+      // Keep the latest one, delete the rest
+      const latestScript = widgetScripts[widgetScripts.length - 1];
+      
+      for (const script of widgetScripts) {
+        if (script.id !== latestScript.id) {
+          await fetch(`https://${shop}/admin/api/2024-01/script_tags/${script.id}.json`, {
+            method: "DELETE",
+            headers: {
+              "X-Shopify-Access-Token": user.access_token
+            }
+          });
+        }
+      }
+    }
+
+    res.json({ success: true, message: "Scripts cleaned up successfully" });
+
+  } catch (error) {
+    console.error("Error cleaning up scripts:", error);
+    res.status(500).json({ error: "Failed to cleanup scripts" });
+  }
+});
+
+// =============================
 // HELPER FUNCTIONS
 // =============================
 
@@ -662,4 +769,5 @@ app.listen(PORT, () => {
   console.log(`🚀 AI Sales Agent Server running on port ${PORT}`);
   console.log(`📊 Admin API available at /api/admin/*`);
   console.log(`💬 Chat API available at /chat`);
+  console.log(`🎛️ Admin Dashboard available at /admin`);
 });
