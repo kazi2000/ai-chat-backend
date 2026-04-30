@@ -35,6 +35,29 @@ const supabase = createClient(
 app.post("/chat", async (req, res) => {
   try {
     const { message, sessionId } = req.body;
+    
+// Lead extraction
+const emailRegex = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
+const phoneRegex = /\b\d{10,15}\b/;
+
+let email = message.match(emailRegex)?.[0] || null;
+let phone = message.match(phoneRegex)?.[0] || null;
+
+// simple name extraction
+let name = null;
+if (message.toLowerCase().includes("my name is")) {
+  name = message.split("is")[1]?.trim();
+}
+
+// Save only if at least one exists
+if (email || phone || name) {
+  await supabase.from("leads").insert({
+    shop: sessionId,
+    name,
+    email,
+    phone
+  });
+}
 
     // Get user
     const { data: user } = await supabase
@@ -45,10 +68,10 @@ app.post("/chat", async (req, res) => {
 
     // Free plan limit
     if (user.plan === "free" && user.message_count >= 50) {
-  return res.json({
-    reply: `⚠️ Free limit reached. Upgrade here: https://ai-chat-backend-c3y7.onrender.com/create-charge?shop=${sessionId}`
-  });
-}
+      return res.json({
+        reply: `⚠️ You've reached your free limit.\nUpgrade here: https://ai-chat-backend-c3y7.onrender.com/create-charge?shop=${sessionId}`
+      });
+    }
 
     // Get memory
     const { data: memory } = await supabase
@@ -58,28 +81,67 @@ app.post("/chat", async (req, res) => {
 
     const context = memory?.map(m => m.message).join("\n") || "";
 
-    // AI response
+    // Get products
+    const { data: products } = await supabase
+      .from("products")
+      .select("title, description, price")
+      .eq("shop", sessionId);
+
+    const productContext = products?.length
+      ? products
+          .map((p) => `${p.title} - ${p.description} - $${p.price}`)
+          .join("\n")
+      : "No products available.";
+
+    // AI response (IMPROVED PROMPT)
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "You are a sales assistant." },
-        { role: "user", content: context + "\n" + message }
-      ],
+        {
+          role: "system",
+          content: `
+You are an AI sales assistant for an ecommerce store.
+
+Your goals:
+- Understand customer needs
+- Recommend relevant products (DO NOT list everything)
+- Ask smart questions before recommending
+- Be conversational, not pushy
+- Try to convert user into buyer
+
+If user is unsure or not ready:
+Ask for email or phone politely to follow up.
+
+Available products:
+${productContext}
+`
+        },
+        {
+          role: "user",
+          content: `${context}\nUser: ${message}`
+        }
+      ]
     });
 
-    const reply = response.choices[0].message.content;
+    let reply = response.choices[0].message.content;
 
-    // ✅ Update message count
-    await supabase
-      .from("users")
-      .update({ message_count: user.message_count + 1 })
-      .eq("shop", sessionId);
+    // 🔥 Add remaining message count
+    if (user.plan === "free") {
+      const remaining = 50 - (user.message_count + 1);
+      reply += `\n\n(${remaining} free messages left)`;
+    }
 
-    // ✅ Store memory
+    // Save memory
     await supabase.from("chat_memory").insert([
       { session_id: sessionId, message: message },
       { session_id: sessionId, message: reply }
     ]);
+
+    // Update count
+    await supabase
+      .from("users")
+      .update({ message_count: user.message_count + 1 })
+      .eq("shop", sessionId);
 
     res.json({ reply });
 
@@ -88,7 +150,6 @@ app.post("/chat", async (req, res) => {
     res.status(500).json({ error: "Something went wrong" });
   }
 });
-
 
 // =============================
 // SERVE WIDGET
