@@ -389,7 +389,7 @@
 
       try {
         // Send message to backend
-        const response = await fetch(`${CONFIG.apiUrl}/api/chat`, {
+        const response = await fetch("https://shopify-sales-bot--kaziubaid05.replit.app/api/chat", {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
