@@ -1,4 +1,4 @@
-(function () {
+(function() {
   // Configuration
   const CONFIG = {
     apiUrl: new URL(document.currentScript.src).origin,
@@ -7,12 +7,37 @@
     storageKey: 'ai_sales_agent_session'
   };
 
+  // Safe storage that works in sandboxed environments
+  const SafeStorage = {
+    data: {},
+    
+    getItem: function(key) {
+      // Try localStorage first
+      try {
+        return localStorage.getItem(key);
+      } catch (e) {
+        // Fallback to in-memory storage
+        return this.data[key] || null;
+      }
+    },
+    
+    setItem: function(key, value) {
+      // Try localStorage first
+      try {
+        localStorage.setItem(key, value);
+      } catch (e) {
+        // Fallback to in-memory storage
+        this.data[key] = value;
+      }
+    }
+  };
+
   // Get or create session ID
   function getSessionId() {
-    let sessionId = localStorage.getItem(CONFIG.storageKey);
+    let sessionId = SafeStorage.getItem(CONFIG.storageKey);
     if (!sessionId) {
       sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem(CONFIG.storageKey, sessionId);
+      SafeStorage.setItem(CONFIG.storageKey, sessionId);
     }
     return sessionId;
   }
@@ -35,9 +60,37 @@
           box-sizing: border-box;
         }
 
+        .ai-widget-button {
+          width: 56px;
+          height: 56px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border: none;
+          color: white;
+          font-size: 24px;
+          cursor: pointer;
+          box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s ease;
+        }
+
+        .ai-widget-button:hover {
+          transform: scale(1.1);
+          box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .ai-widget-button:active {
+          transform: scale(0.95);
+        }
+
         .ai-widget-container {
+          position: fixed;
+          bottom: 90px;
+          right: 20px;
           width: 380px;
-          max-width: 100vw;
+          max-width: calc(100vw - 40px);
           height: 500px;
           background: white;
           border-radius: 12px;
@@ -45,6 +98,19 @@
           display: flex;
           flex-direction: column;
           overflow: hidden;
+          animation: slideUp 0.3s ease-out;
+          z-index: 10000;
+        }
+
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
 
         .ai-widget-header {
@@ -114,30 +180,27 @@
 
         .ai-widget-message-content {
           max-width: 70%;
-          padding: 10px 14px;
+          padding: 10px 12px;
           border-radius: 8px;
           font-size: 14px;
           line-height: 1.4;
-          word-wrap: break-word;
         }
 
-        .ai-widget-message.user .ai-widget-message-content {
-          background: #667eea;
-          color: white;
-          border-bottom-right-radius: 2px;
-        }
-
-        .ai-widget-message.bot .ai-widget-message-content {
+        .ai-widget-message.ai .ai-widget-message-content {
           background: white;
           color: #333;
           border: 1px solid #e0e0e0;
-          border-bottom-left-radius: 2px;
+        }
+
+        .ai-widget-message.user .ai-widget-message-content {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
         }
 
         .ai-widget-typing {
           display: flex;
           gap: 4px;
-          padding: 10px 14px;
+          padding: 10px 12px;
         }
 
         .ai-widget-typing-dot {
@@ -157,14 +220,8 @@
         }
 
         @keyframes typing {
-          0%, 60%, 100% {
-            opacity: 0.5;
-            transform: translateY(0);
-          }
-          30% {
-            opacity: 1;
-            transform: translateY(-10px);
-          }
+          0%, 60%, 100% { opacity: 0.5; }
+          30% { opacity: 1; }
         }
 
         .ai-widget-input-area {
@@ -172,13 +229,14 @@
           border-top: 1px solid #e0e0e0;
           display: flex;
           gap: 8px;
+          background: white;
         }
 
         .ai-widget-input {
           flex: 1;
           border: 1px solid #e0e0e0;
           border-radius: 6px;
-          padding: 10px 12px;
+          padding: 8px 12px;
           font-size: 14px;
           font-family: inherit;
           resize: none;
@@ -188,23 +246,27 @@
         .ai-widget-input:focus {
           outline: none;
           border-color: #667eea;
-          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+          box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
         }
 
         .ai-widget-send {
-          background: #667eea;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           color: white;
           border: none;
           border-radius: 6px;
-          padding: 10px 16px;
+          padding: 8px 12px;
           cursor: pointer;
           font-size: 14px;
           font-weight: 500;
-          transition: background 0.2s;
+          transition: all 0.2s;
         }
 
-        .ai-widget-send:hover:not(:disabled) {
-          background: #5568d3;
+        .ai-widget-send:hover {
+          opacity: 0.9;
+        }
+
+        .ai-widget-send:active {
+          transform: scale(0.95);
         }
 
         .ai-widget-send:disabled {
@@ -212,33 +274,9 @@
           cursor: not-allowed;
         }
 
-        .ai-widget-toggle {
-          width: 56px;
-          height: 56px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          border: none;
-          color: white;
-          font-size: 24px;
-          cursor: pointer;
-          box-shadow: 0 2px 12px rgba(102, 126, 234, 0.4);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: transform 0.2s;
-        }
-
-        .ai-widget-toggle:hover {
-          transform: scale(1.1);
-        }
-
-        .ai-widget-hidden {
-          display: none !important;
-        }
-
         @media (max-width: 480px) {
           .ai-widget-container {
-            width: calc(100vw - 16px);
+            width: calc(100vw - 40px);
             height: 60vh;
             max-height: 500px;
           }
@@ -249,55 +287,146 @@
         }
       </style>
 
-      <button class="ai-widget-toggle" id="ai-widget-toggle" title="Chat with AI Sales Agent">💬</button>
-
-      <div class="ai-widget-container ai-widget-hidden" id="ai-widget-container">
-        <div class="ai-widget-header">
-          <div>
-            <div class="ai-widget-header-title">AI Sales Agent</div>
-            <div class="ai-widget-header-subtitle">We're here to help</div>
-          </div>
-          <button class="ai-widget-close" id="ai-widget-close">✕</button>
-        </div>
-
-        <div class="ai-widget-messages" id="ai-widget-messages"></div>
-
-        <div class="ai-widget-input-area">
-          <input
-            type="text"
-            class="ai-widget-input"
-            id="ai-widget-input"
-            placeholder="Ask me anything..."
-            autocomplete="off"
-          />
-          <button class="ai-widget-send" id="ai-widget-send">Send</button>
-        </div>
-      </div>
+      <button class="ai-widget-button" id="ai-widget-toggle" title="Chat with us">
+        💬
+      </button>
     `;
 
     document.body.appendChild(widget);
     setupEventListeners();
-    sendInitialMessage();
   }
 
   // Setup event listeners
   function setupEventListeners() {
-    const toggle = document.getElementById('ai-widget-toggle');
-    const close = document.getElementById('ai-widget-close');
-    const container = document.getElementById('ai-widget-container');
-    const sendBtn = document.getElementById('ai-widget-send');
+    const toggleButton = document.getElementById('ai-widget-toggle');
+    
+    if (toggleButton) {
+      toggleButton.addEventListener('click', function() {
+        openChat();
+      });
+    }
+  }
+
+  // Open chat window
+  function openChat() {
+    let container = document.getElementById('ai-widget-container');
+    
+    if (container) {
+      container.style.display = 'flex';
+      return;
+    }
+
+    const widget = document.getElementById(CONFIG.widgetId);
+    container = document.createElement('div');
+    container.id = 'ai-widget-container';
+    container.className = 'ai-widget-container';
+
+    const sessionId = getSessionId();
+
+    container.innerHTML = `
+      <div class="ai-widget-header">
+        <div>
+          <div class="ai-widget-header-title">AI Sales Agent</div>
+          <div class="ai-widget-header-subtitle">Ask about our products</div>
+        </div>
+        <button class="ai-widget-close" id="ai-widget-close">✕</button>
+      </div>
+      <div class="ai-widget-messages" id="ai-widget-messages"></div>
+      <div class="ai-widget-input-area">
+        <input 
+          type="text" 
+          class="ai-widget-input" 
+          id="ai-widget-input" 
+          placeholder="Type your message..."
+          autocomplete="off"
+        />
+        <button class="ai-widget-send" id="ai-widget-send">Send</button>
+      </div>
+    `;
+
+    widget.appendChild(container);
+
+    // Add initial message
+    const messagesDiv = document.getElementById('ai-widget-messages');
+    const welcomeMsg = document.createElement('div');
+    welcomeMsg.className = 'ai-widget-message ai';
+    welcomeMsg.innerHTML = `<div class="ai-widget-message-content">👋 Hi! I'm your AI sales assistant. How can I help you find the perfect product today?</div>`;
+    messagesDiv.appendChild(welcomeMsg);
+
+    // Setup close button
+    document.getElementById('ai-widget-close').addEventListener('click', closeChat);
+
+    // Setup input and send
     const input = document.getElementById('ai-widget-input');
+    const sendBtn = document.getElementById('ai-widget-send');
 
-    toggle.addEventListener('click', () => {
-      container.classList.toggle('ai-widget-hidden');
-      if (!container.classList.contains('ai-widget-hidden')) {
-        input.focus();
+    const sendMessage = async () => {
+      const message = input.value.trim();
+      if (!message) return;
+
+      // Add user message
+      const userMsg = document.createElement('div');
+      userMsg.className = 'ai-widget-message user';
+      userMsg.innerHTML = `<div class="ai-widget-message-content">${escapeHtml(message)}</div>`;
+      messagesDiv.appendChild(userMsg);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+      input.value = '';
+      sendBtn.disabled = true;
+
+      // Show typing indicator
+      const typingDiv = document.createElement('div');
+      typingDiv.className = 'ai-widget-message ai';
+      typingDiv.innerHTML = `
+        <div class="ai-widget-typing">
+          <div class="ai-widget-typing-dot"></div>
+          <div class="ai-widget-typing-dot"></div>
+          <div class="ai-widget-typing-dot"></div>
+        </div>
+      `;
+      messagesDiv.appendChild(typingDiv);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+      try {
+        // Send message to backend
+        const response = await fetch(`${CONFIG.apiUrl}/api/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: message,
+            shop: CONFIG.shop,
+            sessionId: sessionId
+          })
+        });
+
+        const data = await response.json();
+
+        // Remove typing indicator
+        messagesDiv.removeChild(typingDiv);
+
+        // Add AI response
+        const aiMsg = document.createElement('div');
+        aiMsg.className = 'ai-widget-message ai';
+        aiMsg.innerHTML = `<div class="ai-widget-message-content">${escapeHtml(data.response || 'Sorry, I could not process that. Please try again.')}</div>`;
+        messagesDiv.appendChild(aiMsg);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+      } catch (error) {
+        console.error('Chat error:', error);
+        messagesDiv.removeChild(typingDiv);
+        
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'ai-widget-message ai';
+        errorMsg.innerHTML = `<div class="ai-widget-message-content">Sorry, I'm having trouble connecting. Please try again.</div>`;
+        messagesDiv.appendChild(errorMsg);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
       }
-    });
 
-    close.addEventListener('click', () => {
-      container.classList.add('ai-widget-hidden');
-    });
+      sendBtn.disabled = false;
+      input.focus();
+    };
 
     sendBtn.addEventListener('click', sendMessage);
     input.addEventListener('keypress', (e) => {
@@ -306,102 +435,31 @@
         sendMessage();
       }
     });
-  }
 
-  // Send initial greeting
-  function sendInitialMessage() {
-    const messagesDiv = document.getElementById('ai-widget-messages');
-    const greeting = document.createElement('div');
-    greeting.className = 'ai-widget-message bot';
-    greeting.innerHTML = `
-      <div class="ai-widget-message-content">
-        👋 Hi there! I'm here to help you find the perfect product. What are you looking for today?
-      </div>
-    `;
-    messagesDiv.appendChild(greeting);
-  }
-
-  // Send message
-  async function sendMessage() {
-    const input = document.getElementById('ai-widget-input');
-    const sendBtn = document.getElementById('ai-widget-send');
-    const messagesDiv = document.getElementById('ai-widget-messages');
-    const message = input.value.trim();
-
-    if (!message) return;
-
-    // Add user message
-    const userMsg = document.createElement('div');
-    userMsg.className = 'ai-widget-message user';
-    userMsg.innerHTML = `<div class="ai-widget-message-content">${escapeHtml(message)}</div>`;
-    messagesDiv.appendChild(userMsg);
-
-    // Clear input
-    input.value = '';
     input.focus();
+  }
 
-    // Show typing indicator
-    const typingDiv = document.createElement('div');
-    typingDiv.className = 'ai-widget-message bot';
-    typingDiv.innerHTML = `
-      <div class="ai-widget-typing">
-        <div class="ai-widget-typing-dot"></div>
-        <div class="ai-widget-typing-dot"></div>
-        <div class="ai-widget-typing-dot"></div>
-      </div>
-    `;
-    messagesDiv.appendChild(typingDiv);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-    // Disable send button
-    sendBtn.disabled = true;
-
-    try {
-      const response = await fetch(`${CONFIG.apiUrl}/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          message,
-          sessionId: getSessionId(),
-          shop: CONFIG.shop
-        })
-      });
-
-      const data = await response.json();
-
-      // Remove typing indicator
-      typingDiv.remove();
-
-      // Add bot response
-      const botMsg = document.createElement('div');
-      botMsg.className = 'ai-widget-message bot';
-      botMsg.innerHTML = `<div class="ai-widget-message-content">${escapeHtml(data.reply || 'Sorry, I had trouble processing that.')}</div>`;
-      messagesDiv.appendChild(botMsg);
-
-    } catch (error) {
-      console.error('Chat error:', error);
-      typingDiv.remove();
-
-      const errorMsg = document.createElement('div');
-      errorMsg.className = 'ai-widget-message bot';
-      errorMsg.innerHTML = `<div class="ai-widget-message-content">Sorry, I'm having trouble connecting. Please try again.</div>`;
-      messagesDiv.appendChild(errorMsg);
+  // Close chat window
+  function closeChat() {
+    const container = document.getElementById('ai-widget-container');
+    if (container) {
+      container.style.display = 'none';
     }
-
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    sendBtn.disabled = false;
   }
 
-  // Escape HTML
+  // Escape HTML to prevent XSS
   function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    const map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
   }
 
-  // Initialize when DOM is ready
+  // Initialize widget when DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', createWidget);
   } else {
